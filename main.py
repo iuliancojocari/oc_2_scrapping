@@ -1,17 +1,34 @@
+from msilib.schema import Directory
 from ntpath import join
 import requests
 from bs4 import BeautifulSoup
 import csv
 from urllib.parse import urljoin
+import os
 
 
-url = "http://books.toscrape.com/catalogue/category/books/sequential-art_5/index.html"
+url = "http://books.toscrape.com/index.html"
 
 # Récupérer le contenu de la page principale
 def get_soup(url):
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'lxml')
     return soup
+
+def get_caetegories(url):
+    soup = get_soup(url)
+    nav_elements = soup.find('ul', {'class':'nav-list'}).find('ul').find_all('a')
+
+    categories = {}
+
+    for nav_element in nav_elements:
+        
+        categorie_name = nav_element.text
+        categorie_url = urljoin(url, nav_element.get('href'))
+        
+        categories[categorie_name.strip()] = categorie_url
+
+    return categories
 
 # Récupérer le lien vers la page suivante
 def get_next_page_url(soup):
@@ -45,7 +62,7 @@ def get_category_pages(url):
 
 def get_books_urls(url):
     pages = get_category_pages(url)
-    print(pages)
+    #print(pages)
     book_urls = []
 
     for page in pages:
@@ -60,47 +77,65 @@ def get_books_urls(url):
     return book_urls
         
 def get_book_data(url):
-    books = get_books_urls(url)
+    categories = get_caetegories(url)
 
-    with open('list_books.csv', 'w', newline='', encoding='utf-8') as csvfile:
+    for cat_name, cat_url in categories.items():
 
-            fieldnames = ['product_page_url', 
-                                    'title', 
-                                    'category', 
-                                    'product_description', 
-                                    'image_url', 
-                                    'universal_product_code', 
-                                    'price_including_tax',
-                                    'number_available',
-                                    'review_rating']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        category_pages = get_category_pages(cat_url)
+        print(category_pages)
+        for category_page in category_pages:
 
-            writer.writeheader()
+            books = get_books_urls(category_page)
 
-            for book in books:
-                    soup = get_soup(book)
+            directory = "data"
+            if not os.path.exists(directory):
+                os.makedirs(directory)
 
-                    product_page_url        = book
-                    title                   = soup.h1.text
-                    category                = soup.find('ul', {'class':'breadcrumb'}).select('li')[2].find('a').text
-                    product_description     = soup.find(id='product_description').find_next_sibling('p').text
-                    image_url               = soup.find('div', {'class' : 'item'}).find('img').get('src')
-                    universal_product_code  = soup.find('table', {'class': 'table'}).select('td')[0].text
-                    price_including_tax     = soup.find('table', {'class': 'table'}).select('td')[2].text
-                    number_available        = soup.find('table', {'class': 'table'}).select('td')[5].text
-                    review_rating           = soup.find('table', {'class': 'table'}).select('td')[6].text
+            filename = 'data/' + cat_name + '.csv'
 
-                        
-                    writer.writerow({   'product_page_url'          : product_page_url, 
-                                        'title'                     : title,
-                                        'category'                  : category,
-                                        'product_description'       : product_description,
-                                        'image_url'                 : image_url,
-                                        'universal_product_code'    : universal_product_code,
-                                        'price_including_tax'       : price_including_tax,
-                                        'number_available'          : number_available,
-                                        'review_rating'             : review_rating
-                                        })
+            with open(filename, 'a', newline='', encoding='utf-8') as csvfile:
+
+                fieldnames = ['product_page_url', 
+                                        'title', 
+                                        'category', 
+                                        'product_description', 
+                                        'image_url', 
+                                        'universal_product_code', 
+                                        'price_including_tax',
+                                        'number_available',
+                                        'review_rating']
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+                if os.stat(filename).st_size == 0:
+                    writer.writeheader()
+
+                for book in books:
+                        soup = get_soup(book)
+
+                        product_page_url        = book
+                        title                   = soup.h1.text
+                        category                = soup.find('ul', {'class':'breadcrumb'}).select('li')[2].find('a').text
+                        try:
+                            product_description     = soup.find(id='product_description').find_next_sibling('p').text
+                        except:
+                            product_description = 'N/A'
+                        image_url               = soup.find('div', {'class' : 'item'}).find('img').get('src')
+                        universal_product_code  = soup.find('table', {'class': 'table'}).select('td')[0].text
+                        price_including_tax     = soup.find('table', {'class': 'table'}).select('td')[2].text
+                        number_available        = soup.find('table', {'class': 'table'}).select('td')[5].text
+                        review_rating           = soup.find('table', {'class': 'table'}).select('td')[6].text
+
+                            
+                        writer.writerow({   'product_page_url'          : product_page_url, 
+                                            'title'                     : title,
+                                            'category'                  : category,
+                                            'product_description'       : product_description,
+                                            'image_url'                 : image_url,
+                                            'universal_product_code'    : universal_product_code,
+                                            'price_including_tax'       : price_including_tax,
+                                            'number_available'          : number_available,
+                                            'review_rating'             : review_rating
+                                            })
 
 
 get_book_data(url)
