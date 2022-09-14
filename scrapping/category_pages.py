@@ -25,17 +25,12 @@ def get_next_page_url(soup, cat_url):
     """
     GET the next page url of a category
     """
-    next_page_element = soup.select_one('li.next > a')
+    next_page_element = soup.select_one("li.next > a")
 
     if next_page_element is not None:
-        next_page_url = next_page_element.get('href')
+        next_page_url = next_page_element.get("href")
         page_url = urljoin(cat_url, next_page_url)
 
         return page_url
     else:
         return
-
-
-if __name__ == "__main__":
-    url = "http://books.toscrape.com/catalogue/category/books/mystery_3/index.html"
-    print(get_category_pages(url))
